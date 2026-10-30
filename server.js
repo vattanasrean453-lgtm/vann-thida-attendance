@@ -839,7 +839,7 @@ async function sendTelegramMessage(text) {
 
   try {
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -849,7 +849,26 @@ async function sendTelegramMessage(text) {
       }),
       signal: AbortSignal.timeout(8000)
     });
-    const result = await res.json();
+    let result = await res.json();
+    
+    // Automatically handle Telegram supergroup migration:
+    if (!result.ok && result.parameters && result.parameters.migrate_to_chat_id) {
+      const newChatId = String(result.parameters.migrate_to_chat_id);
+      console.log(`Telegram group migrated to ${newChatId}. Updating database...`);
+      await saveSetting('telegram_chat_id', newChatId);
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: newChatId,
+          text: text,
+          parse_mode: 'HTML'
+        }),
+        signal: AbortSignal.timeout(8000)
+      });
+      result = await res.json();
+    }
+
     return { success: result.ok, data: result };
   } catch (err) {
     console.error('Failed to send Telegram message:', err.message);
