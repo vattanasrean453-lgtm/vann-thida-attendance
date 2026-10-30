@@ -55,7 +55,7 @@ function getOrCreateDeviceId() {
 
 // Local network IP address display
 const currentHost = window.location.host;
-const mobileAppUrl = window.location.protocol + '//' + (currentHost.includes('localhost') ? '192.168.1.17:3000' : currentHost);
+let mobileAppUrl = window.location.protocol + '//' + (currentHost.includes('localhost') ? '192.168.1.17:3000' : currentHost);
 
 // ================= I18N DICTIONARY =================
 const translations = {
@@ -931,7 +931,12 @@ async function loadPublicInfo() {
     
     // Update company branding across header & poster
     const compEl = document.getElementById('headerCompanyName');
-    if (compEl) compEl.textContent = publicInfo.companyName;
+    if (compEl) {
+      const rawName = publicInfo.companyName || 'VANN SITHA TRADING';
+      compEl.textContent = (window.innerWidth < 640) 
+        ? rawName.replace(/,?\s*CO\.,?\s*LTD\.?/i, '').trim()
+        : rawName;
+    }
     const postCompEl = document.getElementById('posterCompanyName');
     if (postCompEl) postCompEl.textContent = publicInfo.companyName;
 
@@ -2848,93 +2853,99 @@ async function loadAdminDashboard() {
 
 // 10. Office QR Code Poster Rendering (With Centered Logo)
 function renderOfficeQrPoster() {
-  const container = document.getElementById('officeQrCodeDisplay');
-  if (!container) return;
-  container.innerHTML = '';
-  container.style.position = 'relative';
+  try {
+    const container = document.getElementById('officeQrCodeDisplay');
+    if (!container) return;
+    container.innerHTML = '';
+    container.style.position = 'relative';
 
-  // Automatically update poster domain to live origin (e.g. https://vann-thida-attendance.vercel.app)
-  const posterUrlEl = document.getElementById('qrPosterUrlText');
-  if (posterUrlEl) posterUrlEl.textContent = window.location.origin;
-  mobileAppUrl = window.location.origin;
+    // Automatically update poster domain to live origin (e.g. https://vann-thida-attendance.vercel.app)
+    const posterUrlEl = document.getElementById('qrPosterUrlText');
+    if (posterUrlEl) posterUrlEl.textContent = window.location.origin;
+    try { mobileAppUrl = window.location.origin; } catch (e) {}
 
-  const qrToken = (publicInfo && publicInfo.officeQrToken) ? publicInfo.officeQrToken : 'eb2070ce7e8060fc3b8030e9c0b4ea0a4e16668eff9ec2d9';
-  const qrSize = 240;
+    const qrToken = (publicInfo && publicInfo.officeQrToken) ? publicInfo.officeQrToken : 'eb2070ce7e8060fc3b8030e9c0b4ea0a4e16668eff9ec2d9';
+    const qrSize = 240;
 
-  new QRCode(container, {
-    text: qrToken,
-    width: qrSize,
-    height: qrSize,
-    colorDark: '#0f172a',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
-  });
-
-  // Center logo overlay container (instant display)
-  const overlay = document.createElement('div');
-  overlay.className = 'absolute inset-0 flex items-center justify-center pointer-events-none';
-  overlay.innerHTML = `
-    <div class="w-14 h-14 bg-white rounded-2xl p-1.5 shadow-lg border-2 border-slate-200 flex items-center justify-center">
-      <img src="/logo.png" alt="Logo" class="w-full h-full object-contain">
-    </div>
-  `;
-  container.appendChild(overlay);
-
-  // Bake logo directly into canvas and img for printing & export
-  const logo = new Image();
-  logo.crossOrigin = 'anonymous';
-  logo.src = '/logo.png';
-  logo.onload = () => {
-    try {
-      const canvas = container.querySelector('canvas');
-      const imgEl = container.querySelector('img:not([alt="Logo"])');
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      const logoBoxSize = 56;
-      const x = (qrSize - logoBoxSize) / 2;
-      const y = (qrSize - logoBoxSize) / 2;
-      const radius = 12;
-
-      // Draw white rounded background
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(x, y, logoBoxSize, logoBoxSize, radius);
-      } else {
-        ctx.rect(x, y, logoBoxSize, logoBoxSize);
-      }
-      ctx.fill();
-
-      // Border
-      ctx.shadowColor = 'transparent';
-      ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Clip logo within rounded rect
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8, radius - 2);
-      } else {
-        ctx.rect(x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8);
-      }
-      ctx.clip();
-
-      // Draw logo inside
-      ctx.drawImage(logo, x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8);
-      ctx.restore();
-
-      if (imgEl) {
-        imgEl.src = canvas.toDataURL('image/png');
-      }
-    } catch (err) {
-      console.warn('Could not bake logo into QR canvas:', err);
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(container, {
+        text: qrToken,
+        width: qrSize,
+        height: qrSize,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: (QRCode.CorrectLevel && QRCode.CorrectLevel.H !== undefined) ? QRCode.CorrectLevel.H : 2
+      });
     }
-  };
+
+    // Center logo overlay container (instant display)
+    const overlay = document.createElement('div');
+    overlay.className = 'absolute inset-0 flex items-center justify-center pointer-events-none';
+    overlay.innerHTML = `
+      <div class="w-14 h-14 bg-white rounded-2xl p-1.5 shadow-lg border-2 border-slate-200 flex items-center justify-center">
+        <img src="/logo.png" alt="Logo" class="w-full h-full object-contain">
+      </div>
+    `;
+    container.appendChild(overlay);
+
+    // Bake logo directly into canvas and img for printing & export
+    const logo = new Image();
+    logo.crossOrigin = 'anonymous';
+    logo.src = '/logo.png';
+    logo.onload = () => {
+      try {
+        const canvas = container.querySelector('canvas');
+        const imgEl = container.querySelector('img:not([alt="Logo"])');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const logoBoxSize = 56;
+        const x = (qrSize - logoBoxSize) / 2;
+        const y = (qrSize - logoBoxSize) / 2;
+        const radius = 12;
+
+        // Draw white rounded background
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, logoBoxSize, logoBoxSize, radius);
+        } else {
+          ctx.rect(x, y, logoBoxSize, logoBoxSize);
+        }
+        ctx.fill();
+
+        // Border
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Clip logo within rounded rect
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8, radius - 2);
+        } else {
+          ctx.rect(x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8);
+        }
+        ctx.clip();
+
+        // Draw logo inside
+        ctx.drawImage(logo, x + 4, y + 4, logoBoxSize - 8, logoBoxSize - 8);
+        ctx.restore();
+
+        if (imgEl) {
+          imgEl.src = canvas.toDataURL('image/png');
+        }
+      } catch (err) {
+        console.warn('Could not bake logo into QR canvas:', err);
+      }
+    };
+  } catch (err) {
+    console.error('renderOfficeQrPoster failed:', err);
+  }
 }
 
 function copyMobileUrl() {
