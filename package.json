@@ -1,0 +1,23 @@
+{
+  "name": "company-attendance-webapp-template",
+  "version": "1.1.0",
+  "description": "Clean reusable attendance web app template for Antigravity setup",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=22.x"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pdfkit": "^0.17.2"
+  }
+}

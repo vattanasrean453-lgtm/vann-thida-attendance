@@ -1,0 +1,20 @@
+{
+  "name": "VANN SITHA TRADING Attendance",
+  "short_name": "Vann Sitha",
+  "description": "ប្រព័ន្ធគ្រប់គ្រងវត្តមានឌីជីថលសម្រាប់ VANN SITHA TRADING CO., LTD",
+  "lang": "km",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#07152f",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
