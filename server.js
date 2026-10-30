@@ -15,9 +15,9 @@ const { createClient } = require('@libsql/client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ENV_ADMIN_PIN = (process.env.ADMIN_PIN || '').trim();
-const ENV_TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
-const ENV_SESSION_SECRET = (process.env.SESSION_SECRET || '').trim();
+const ENV_ADMIN_PIN = (process.env.ADMIN_PIN || '123456').trim();
+const ENV_TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '9004213292:AAEO7PVANLwspFb819fErE7mScSpBIvXhC8').trim();
+const ENV_SESSION_SECRET = (process.env.SESSION_SECRET || '722da8fa1c7c1b12d1b0d17d96bc3b1218082f26e19a16a94fe21051148c5a11').trim();
 
 const PASSWORD_PREFIX = 'scrypt$v1$';
 
@@ -53,8 +53,8 @@ function cleanPlainText(value, maxLength = 500) {
 
 // Initialize Database (Cloud Turso or local SQLite fallback)
 let client;
-const tursoUrl = process.env.TURSO_DATABASE_URL;
-const tursoToken = process.env.TURSO_AUTH_TOKEN;
+const tursoUrl = process.env.TURSO_DATABASE_URL || 'libsql://vann-thida-attendanc-vattanasrean453-lgtm.aws-ap-northeast-1.turso.io';
+const tursoToken = process.env.TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTMzNDIyMzYsImlkIjoiMDFhMThiODEtZjIwMS03MTg0LThhN2EtYjBlZDdlNGNkMmMxIiwia2lkIjoicjRuVVV5b2NtVG82OFFwRXR3UGQ1RlBNbkpCcFJnMU00dlN1WC05akFJSSIsInJpZCI6IjIyNTk3OTdkLWVmMzktNDhiYy04NmI1LTVkOTBlZGQ2YTExMCJ9.o6loa7M4kT4m5WNooAw9hr4k1f_uyoFIAlZ2_Op9u0yGHqw_QllKzZxn7dtYKOn5jhxk3i5HrrIaVYyksQlqCQ';
 
 if (tursoUrl) {
   client = createClient({
@@ -1249,6 +1249,16 @@ app.post('/api/telegram-webhook', async (req, res) => {
 });
 
 // ================= API ROUTES =================
+
+
+// Guaranteed Logo serving for Vercel & Local
+app.get('/logo.png', (req, res) => {
+  const p1 = path.join(__dirname, 'public', 'logo.png');
+  const p2 = path.join(__dirname, 'logo.png');
+  if (fs.existsSync(p1)) return res.sendFile(p1);
+  if (fs.existsSync(p2)) return res.sendFile(p2);
+  res.redirect('https://raw.githubusercontent.com/vattanasrean453-lgtm/vann-thida-attendance/main/logo.png');
+});
 
 // Public Info (for staff mobile app)
 app.get('/api/public-info', async (req, res) => {
