@@ -327,7 +327,19 @@ async function initDb() {
 let dbInitPromise = null;
 function ensureDb() {
   if (!dbInitPromise) {
-    dbInitPromise = initDb();
+    dbInitPromise = (async () => {
+      let attempts = 0;
+      while (attempts < 5) {
+        try {
+          attempts++;
+          return await initDb();
+        } catch (err) {
+          console.warn(`Database connection attempt ${attempts} failed:`, err.message || err);
+          if (attempts >= 5) throw err;
+          await new Promise(r => setTimeout(r, 1500 * attempts));
+        }
+      }
+    })();
   }
   return dbInitPromise;
 }

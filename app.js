@@ -2078,43 +2078,121 @@ async function openStaffScannerModal(actionType) {
     badge.className = bInfo.class;
   }
 
-  document.getElementById('staffScannerModal').classList.remove('hidden');
+  // 1. Clean up any previous camera instance and reader container
+  if (staffScanner) {
+    try {
+      if (staffScanner.isScanning) {
+        await staffScanner.stop();
+      }
+    } catch (e) {}
+    try {
+      staffScanner.clear();
+    } catch (e) {}
+    staffScanner = null;
+    isStaffScannerRunning = false;
+  }
+  const readerEl = document.getElementById('staff-qr-reader');
+  if (readerEl) readerEl.innerHTML = '';
+
+  // 2. Reveal modal so container has valid layout dimensions
+  const modal = document.getElementById('staffScannerModal');
+  if (modal) modal.classList.remove('hidden');
+
+  // Small delay for mobile browser DOM paint
+  await new Promise(r => setTimeout(r, 80));
 
   try {
     staffScanner = new Html5Qrcode("staff-qr-reader");
-    await staffScanner.start(
-      { facingMode: "environment" },
-      { 
-        fps: 12, 
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
-          return { width: Math.max(180, edge), height: Math.max(180, edge) };
+
+    // Camera selection strategy optimized for Android Chrome:
+    // First query available cameras to find the real back camera ID
+    let cameraConfig = { facingMode: "environment" };
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length > 0) {
+        const backCam = devices.find(d => /back|rear|environment|wide|main/i.test(d.label));
+        if (backCam) {
+          cameraConfig = backCam.id;
+        } else if (devices.length > 1) {
+          cameraConfig = devices[devices.length - 1].id;
+        } else {
+          cameraConfig = devices[0].id;
         }
+      }
+    } catch (camErr) {
+      console.warn('Could not enumerate cameras, falling back to facingMode:', camErr);
+      cameraConfig = { facingMode: "environment" };
+    }
+
+    const qrConfig = {
+      fps: 15,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const boxSize = Math.floor(minEdge * 0.72);
+        const safeWidth = Math.max(120, Math.min(boxSize, viewfinderWidth - 24));
+        const safeHeight = Math.max(120, Math.min(boxSize, viewfinderHeight - 24));
+        return { width: safeWidth, height: safeHeight };
       },
-      onOfficeQrCodeScanned,
-      () => {}
-    );
-    isStaffScannerRunning = true;
+      aspectRatio: 1.0,
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
+    };
+
+    // Primary attempt with chosen back camera
+    try {
+      await staffScanner.start(cameraConfig, qrConfig, onOfficeQrCodeScanned, () => {});
+      isStaffScannerRunning = true;
+    } catch (firstErr) {
+      console.warn('First start attempt failed, attempting fallback to environment:', firstErr);
+      // Fallback 1: generic facingMode environment
+      try {
+        await staffScanner.start({ facingMode: "environment" }, qrConfig, onOfficeQrCodeScanned, () => {});
+        isStaffScannerRunning = true;
+      } catch (secondErr) {
+        console.warn('Second attempt failed, attempting fallback to user camera:', secondErr);
+        // Fallback 2: any available camera
+        await staffScanner.start({ facingMode: "user" }, qrConfig, onOfficeQrCodeScanned, () => {});
+        isStaffScannerRunning = true;
+      }
+    }
   } catch (err) {
     console.error('Camera open error:', err);
     closeStaffScannerModal();
+    let errorMsg = currentLang === 'km' 
+      ? 'មិនអាចបើកកាមេរ៉ាបានទេ។ សូមប្រាកដថាអ្នកបានចុច "Allow" ឬពិនិត្យ Settings > Site Settings > Camera ក្នុង Chrome។' 
+      : 'Please check camera permissions in your browser';
+    if (err && err.name === 'NotAllowedError') {
+      errorMsg = currentLang === 'km'
+        ? 'Chrome ត្រូវបានបដិសេធសិទ្ធិ Camera! សូមចូល Settings ទូរស័ព្ទ > Apps > Chrome > Permissions > Camera > រើសយក "Allow while using the app"។'
+        : 'Camera permission denied! Please allow Camera permission in your phone App Settings.';
+    }
     Swal.fire({
       icon: 'error',
-      title: currentLang === 'km' ? 'មិនអាចបើកកាមេរ៉ាបានទេ' : 'Camera Access Failed',
-      text: currentLang === 'km' ? 'សូមពិនិត្យមើលសិទ្ធិអនុញ្ញាត Camera លើទូរស័ព្ទរបស់អ្នក' : 'Please check camera permissions in your browser'
+      title: currentLang === 'km' ? 'បញ្ហាបើកកាមេរ៉ា (Camera)' : 'Camera Access Failed',
+      text: errorMsg,
+      confirmButtonColor: '#0ea5e9'
     });
   }
 }
 
 async function closeStaffScannerModal() {
-  if (isStaffScannerRunning && staffScanner) {
+  if (staffScanner) {
     try {
-      await staffScanner.stop();
+      if (staffScanner.isScanning) {
+        await staffScanner.stop();
+      }
+    } catch (e) {}
+    try {
       staffScanner.clear();
     } catch (e) {}
+    staffScanner = null;
     isStaffScannerRunning = false;
   }
-  document.getElementById('staffScannerModal').classList.add('hidden');
+  const readerEl = document.getElementById('staff-qr-reader');
+  if (readerEl) readerEl.innerHTML = '';
+  const modal = document.getElementById('staffScannerModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 let isSubmitting = false;
