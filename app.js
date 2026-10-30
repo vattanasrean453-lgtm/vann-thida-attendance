@@ -2197,31 +2197,31 @@ async function onOfficeQrCodeScanned(decodedText) {
     promptReason = true;
     promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
-      : 'Work starts at 08:00 AM. Please state your reason for being late:';
-  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+      ? 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (លើសម៉ោងអនុញ្ញាត ១០ នាទី)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Work starts at 08:00 AM (Grace period 10 mins exceeded). Please state your reason for being late:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 660) { // Before 11:00
     const earlyMins = 660 - totalMins;
     const diffStr = formatDurationUi(earlyMins);
     promptReason = true;
     promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចេញពីការងារវគ្គទី១ គឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:'
-      : 'Lunch break is at 11:00 AM. Please state your reason for leaving early:';
+      ? 'ម៉ោងចេញសម្រាកគឺ 11:00 AM។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោង:'
+      : 'Lunch break starts at 11:00 AM. Please state your reason for leaving early:';
   } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
     const lateMins = totalMins - 780;
     const diffStr = formatDurationUi(lateMins);
     promptReason = true;
     promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
-      : 'Afternoon starts at 01:00 PM. Please state your reason for being late:';
-  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+      ? 'ម៉ោងចូលរសៀលគឺ 01:00 PM (លើសម៉ោងអនុញ្ញាត ១០ នាទី)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Afternoon starts at 01:00 PM (Grace period 10 mins exceeded). Please state your reason for being late:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1020) { // Before 17:00
     const earlyMins = 1020 - totalMins;
     const diffStr = formatDurationUi(earlyMins);
     promptReason = true;
     promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:'
+      ? 'ម៉ោងចេញទៅផ្ទះគឺ 05:00 PM។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោងទៅផ្ទះ:'
       : 'End of work is at 05:00 PM. Please state your reason for leaving early:';
   }
 
@@ -4520,22 +4520,22 @@ async function executeStaffCheckIn() {
     const lateMins = totalMins - 480;
     promptReason = true;
     promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
-    promptSubtitle = 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
-  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+    promptSubtitle = 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (លើសម៉ោងអនុញ្ញាត ១០ នាទី)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 660) { // Before 11:00
     const earlyMins = 660 - totalMins;
     promptReason = true;
     promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
-    promptSubtitle = 'ម៉ោងចេញពីការងារវគ្គទី១ គឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+    promptSubtitle = 'ម៉ោងចេញសម្រាកគឺ 11:00 AM។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោង:';
   } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
     const lateMins = totalMins - 780;
     promptReason = true;
     promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
-    promptSubtitle = 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
-  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+    promptSubtitle = 'ម៉ោងចូលរសៀលគឺ 01:00 PM (លើសម៉ោងអនុញ្ញាត ១០ នាទី)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1020) { // Before 17:00
     const earlyMins = 1020 - totalMins;
     promptReason = true;
     promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
-    promptSubtitle = 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+    promptSubtitle = 'ម៉ោងចេញទៅផ្ទះគឺ 05:00 PM។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោងទៅផ្ទះ:';
   }
 
   let staffReason = '';

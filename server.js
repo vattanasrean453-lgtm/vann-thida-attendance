@@ -499,27 +499,37 @@ async function getAttendanceModeState() {
 }
 
 function getScheduledAttendanceSlot(totalMinutes, existingLogs = []) {
+  if (existingLogs.length >= 4) {
+    return 'completed';
+  }
+
   const hasMorningIn = existingLogs.some(log => log.type === 'morning_in' || log.type === 'check_in');
-  const hasSessionOneOut = existingLogs.some(log => log.type === 'lunch_out');
+  const hasLunchOut = existingLogs.some(log => log.type === 'lunch_out');
   const hasAfternoonIn = existingLogs.some(log => log.type === 'afternoon_in');
   const hasEveningOut = existingLogs.some(log => log.type === 'evening_out' || log.type === 'check_out');
 
-  // Progressive slot sequence:
-  if (!hasMorningIn && !hasAfternoonIn) {
-    if (totalMinutes >= 720) return 'afternoon_in'; // Afternoon start if morning missed
-    return 'morning_in';
+  // Time boundaries (in minutes from 00:00 Cambodia time UTC+7):
+  // 08:00 = 480 mins, 11:00 = 660 mins, 13:00 = 780 mins, 17:00 = 1020 mins
+
+  // 1. Morning window (before 11:30 AM / 690 mins)
+  if (totalMinutes < 690) {
+    if (!hasMorningIn) return 'morning_in';
+    if (!hasLunchOut) return 'lunch_out';
+    return 'waiting';
   }
 
-  if (hasMorningIn && !hasSessionOneOut) {
-    return 'lunch_out';
+  // 2. Midday transition window (11:30 AM to 12:30 PM / 690 to 750 mins)
+  if (totalMinutes >= 690 && totalMinutes < 750) {
+    if (hasMorningIn && !hasLunchOut) return 'lunch_out';
+    if (!hasAfternoonIn) return 'afternoon_in';
+    return 'waiting';
   }
 
-  if (!hasAfternoonIn) {
-    return 'afternoon_in';
-  }
-
-  if (!hasEveningOut) {
-    return 'evening_out';
+  // 3. Afternoon / Evening window (12:30 PM onwards / >= 750 mins)
+  if (totalMinutes >= 750) {
+    if (!hasAfternoonIn) return 'afternoon_in';
+    if (!hasEveningOut) return 'evening_out';
+    return 'completed';
   }
 
   return 'completed';
@@ -1958,27 +1968,26 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       });
     }
 
-    // The server selects the slot from Cambodia time. Missed slots are closed
-    // permanently instead of being back-filled by a later tap.
-        const { hour: hours, minute: minutes, totalMinutes } = getCambodiaHoursAndMinutes();
+    // The server selects the slot strictly according to Cambodia time window.
+    const { hour: hours, minute: minutes, totalMinutes } = getCambodiaHoursAndMinutes();
     let actionType = getScheduledAttendanceSlot(totalMinutes, todayExisting);
-
-    if (req.body.type && ['morning_in', 'lunch_out', 'afternoon_in', 'evening_out'].includes(req.body.type)) {
-      const alreadyHasRequestedSlot = todayExisting.some(log => {
-        if (req.body.type === 'morning_in') return log.type === 'morning_in' || log.type === 'check_in';
-        if (req.body.type === 'evening_out') return log.type === 'evening_out' || log.type === 'check_out';
-        return log.type === req.body.type;
-      });
-      if (!alreadyHasRequestedSlot) {
-        actionType = req.body.type;
-      }
-    }
 
     if (actionType === 'completed' || todayExisting.length >= 4) {
       return res.status(400).json({
-        error: 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។',
+        error: 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនលើសពី ៤ ដងក្នុងមួយថ្ងៃបានទេ។',
         alreadyMax: true
       });
+    }
+
+    if (req.body.type && ['morning_in', 'lunch_out', 'afternoon_in', 'evening_out'].includes(req.body.type)) {
+      if (req.body.type === actionType) {
+        // match
+      } else if (!todayExisting.some(l => l.type === req.body.type)) {
+        if (req.body.type === 'morning_in' && totalMinutes < 690) actionType = 'morning_in';
+        else if (req.body.type === 'lunch_out' && totalMinutes < 750) actionType = 'lunch_out';
+        else if (req.body.type === 'afternoon_in' && totalMinutes >= 720) actionType = 'afternoon_in';
+        else if (req.body.type === 'evening_out' && totalMinutes >= 750) actionType = 'evening_out';
+      }
     }
 
     const slotAlreadyRecorded = todayExisting.some(log => {
@@ -2061,62 +2070,52 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
     }
 
     // Calculate punctual / late / early departure status for the server-selected slot.
-
-        let isLate = false;
+    let isLate = false;
     let isEarlyLeave = false;
-    let isEarlyArrival = false;
     let diffMinutes = 0;
     let statusText = '🟢✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)';
 
     // Slot Schedule Rules:
     // 1. morning_in: Target 08:00 (480 mins). Grace 10 mins (up to 08:10 = 490 mins).
-    // - Before 07:50 (< 470 mins): Early arrival (requires reason)
-    // - 07:50 to 08:10: On-time (ទាន់ពេល)
-    // - After 08:10 (> 490 mins): Late (មកយឺត - requires reason)
+    // - Scan early (<= 490 mins): Allowed without reason (ចូលមុនម៉ោងបាន)!
+    // - After 08:10 (> 490 mins): Late (មកយឺត) -> MUST require reason!
     if (actionType === 'morning_in') {
       if (totalMinutes > 490) { // After 08:10
         isLate = true;
         diffMinutes = totalMinutes - 480;
         statusText = `🔴⚠️ <b>ស្ថានភាព:</b> មកយឺត (${formatDurationKm(diffMinutes)})`;
-      } else if (totalMinutes < 470) { // Before 07:50 (Early)
-        isEarlyArrival = true;
-        diffMinutes = 480 - totalMinutes;
-        statusText = `🟢✨ <b>ស្ថានភាព:</b> មកមុនម៉ោង (${formatDurationKm(diffMinutes)})`;
       } else {
-        statusText = `🟢✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)`;
+        isLate = false;
+        statusText = `🟢✨ <b>ស្ថានភាព:</b> ចូលធ្វើការទាន់ពេលវេលា (On-Time)`;
       }
     } else if (actionType === 'lunch_out') {
       // 2. lunch_out: Target 11:00 (660 mins).
-      // - Before 10:50 (< 650 mins): Early leave (requires reason)
-      // - 10:50+: On-time
-      if (totalMinutes < 650) {
+      // - Before 11:00 (< 660 mins): Early leave (ចេញមុនម៉ោង) -> MUST require reason!
+      // - 11:00+: On-time (ទាន់ពេល) -> No reason needed!
+      if (totalMinutes < 660) {
         isEarlyLeave = true;
         diffMinutes = 660 - totalMinutes;
         statusText = `🟠🏃💨 <b>ស្ថានភាព:</b> ចេញមុនម៉ោង (${formatDurationKm(diffMinutes)})`;
       } else {
-        statusText = `🟢🍱 <b>ស្ថានភាព:</b> ចេញពីការងារវគ្គទី១តាមកាលវិភាគ`;
+        statusText = `🟢🍱 <b>ស្ថានភាព:</b> ចេញសម្រាកតាមកាលវិភាគ`;
       }
     } else if (actionType === 'afternoon_in') {
       // 3. afternoon_in: Target 13:00 (780 mins). Grace 10 mins (up to 13:10 = 790 mins).
-      // - Before 12:50 (< 770 mins): Early arrival (requires reason)
-      // - 12:50 to 13:10: On-time (ទាន់ពេល)
-      // - After 13:10 (> 790 mins): Late (មកយឺត - requires reason)
+      // - Scan early (<= 790 mins): Allowed without reason (ចូលមុនម៉ោងបាន)!
+      // - After 13:10 (> 790 mins): Late (មកយឺត) -> MUST require reason!
       if (totalMinutes > 790) { // After 13:10
         isLate = true;
         diffMinutes = totalMinutes - 780;
         statusText = `🔴⚠️ <b>ស្ថានភាព:</b> មកយឺត (${formatDurationKm(diffMinutes)})`;
-      } else if (totalMinutes < 770) { // Before 12:50 (Early)
-        isEarlyArrival = true;
-        diffMinutes = 780 - totalMinutes;
-        statusText = `🟢✨ <b>ស្ថានភាព:</b> ចូលមុនម៉ោង (${formatDurationKm(diffMinutes)})`;
       } else {
-        statusText = `🟢✨ <b>ស្ថានភាព:</b> ចូលទាន់ពេលវេលា (On-Time)`;
+        isLate = false;
+        statusText = `🟢✨ <b>ស្ថានភាព:</b> ចូលបំពេញការងារទាន់ពេលវេលា (On-Time)`;
       }
     } else if (actionType === 'evening_out') {
       // 4. evening_out: Target 17:00 (1020 mins).
-      // - Before 16:50 (< 1010 mins): Early leave (requires reason)
-      // - 16:50+: On-time
-      if (totalMinutes < 1010) {
+      // - Before 17:00 (< 1020 mins): Early leave (ចេញមុនម៉ោងទៅផ្ទះ) -> MUST require reason!
+      // - 17:00+: On-time (ទាន់ពេល) -> No reason needed!
+      if (totalMinutes < 1020) {
         isEarlyLeave = true;
         diffMinutes = 1020 - totalMinutes;
         statusText = `🟠🏃💨 <b>ស្ថានភាព:</b> ចេញមុនម៉ោង (${formatDurationKm(diffMinutes)})`;
@@ -2125,19 +2124,18 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       }
     }
 
-    // Require reason if late or early leave or early arrival
+    // Require reason ONLY if late (> 10 mins) or early leave (< scheduled departure)
     const trimmedNote = cleanPlainText(note, 500);
-    const requiresReason = isLate || isEarlyLeave || isEarlyArrival;
+    const requiresReason = isLate || isEarlyLeave;
     if (requiresReason && !trimmedNote) {
       const diffStr = formatDurationKm(diffMinutes);
       let errorMsg = 'សូមបញ្ជាក់មូលហេតុរបស់អ្នកជាមុនសិន!';
-      if (isLate) errorMsg = `អ្នកមកយឺត ${diffStr}! សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត។`;
-      else if (isEarlyLeave) errorMsg = `អ្នកចេញមុនម៉ោង ${diffStr}! សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោង។`;
-      else if (isEarlyArrival) errorMsg = `អ្នកមកដល់មុនម៉ោង ${diffStr}! សូមបញ្ជាក់មូលហេតុដែលមកមុនម៉ោង។`;
+      if (isLate) errorMsg = `អ្នកមកយឺត ${diffStr} (លើសម៉ោងអនុញ្ញាត ១០ នាទី)! សូមបញ្ជាក់មូលហេតុដែលមកយឺត។`;
+      else if (isEarlyLeave) errorMsg = `អ្នកចេញមុនម៉ោង ${diffStr}! សូមបញ្ជាក់មូលហេតុដែលចេញមុនម៉ោង។`;
       return res.status(400).json({
         error: errorMsg,
         requiresReason: true,
-        reasonType: isLate ? 'late' : (isEarlyLeave ? 'early_leave' : 'early_arrival'),
+        reasonType: isLate ? 'late' : 'early_leave',
         diffMinutes: diffMinutes,
         diffFormatted: diffStr,
         actionType
