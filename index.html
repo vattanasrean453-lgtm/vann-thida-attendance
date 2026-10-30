@@ -2049,14 +2049,22 @@
               </h3>
               <p class="text-xs text-slate-300 mt-1">បោះពុម្ពសន្លឹក QR នេះបិទនៅច្រកទ្វារ ឬ Reception សម្រាប់បុគ្គលិកស្កេនកត់ត្រាវត្តមានចូល-ចេញ</p>
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="printOfficeQrPoster()" class="btn-gradient-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95 cursor-pointer">
-                <i data-lucide="printer" class="w-4 h-4"></i>
-                <span>បោះពុម្ព Poster (Print)</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="downloadOfficeQrPng()" class="btn-gradient-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95 cursor-pointer" title="ទាញយកជារូបភាព PNG">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>ទាញយក QR (.PNG)</span>
               </button>
-              <button onclick="regenerateOfficeQrToken()" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="បង្កើត Token ថ្មី">
+              <button type="button" onclick="downloadOfficeQrPosterPdf()" class="px-3.5 py-2 rounded-xl bg-blue-600/80 hover:bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-lg shadow-blue-500/20" title="ទាញយក Poster ជា PDF">
+                <i data-lucide="file-down" class="w-4 h-4 text-cyan-300"></i>
+                <span>ទាញយក Poster (.PDF)</span>
+              </button>
+              <button type="button" onclick="printOfficeQrPoster()" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="បោះពុម្ពភ្លាមៗ">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>បោះពុម្ព (Print)</span>
+              </button>
+              <button type="button" onclick="regenerateOfficeQrToken()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="បង្កើត Token ថ្មី">
                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i>
-                <span>បង្កើត Token ថ្មី</span>
+                <span>Token ថ្មី</span>
               </button>
             </div>
           </div>
@@ -2097,6 +2105,18 @@
                 <button type="button" onclick="copyMobileUrl()" class="text-cyan-400 hover:underline">ចម្លង Link</button>
               </div>
             </div>
+          </div>
+
+          <!-- Download Action Bar below Poster -->
+          <div class="flex flex-wrap items-center justify-center gap-3 pt-2 pb-2">
+            <button type="button" onclick="downloadOfficeQrPng()" class="px-4 py-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 hover:text-white text-xs font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer shadow-lg shadow-cyan-500/10">
+              <i data-lucide="download" class="w-4 h-4 text-cyan-400"></i>
+              <span>ទាញយករូបភាព QR Code (.PNG)</span>
+            </button>
+            <button type="button" onclick="downloadOfficeQrPosterPdf()" class="px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/40 text-blue-200 hover:text-white text-xs font-bold flex items-center gap-2 transition active:scale-95 cursor-pointer shadow-lg shadow-blue-500/10">
+              <i data-lucide="file-down" class="w-4 h-4 text-cyan-300"></i>
+              <span>ទាញយក Poster សម្រាប់បិទជញ្ជាំង (.PDF)</span>
+            </button>
           </div>
 
         </div>
@@ -3365,6 +3385,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=31.7"></script>
+  <script src="/app.js?v=31.9"></script>
 </body>
 </html>

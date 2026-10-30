@@ -2786,6 +2786,7 @@ function switchAdminTab(tabId) {
   }
   if (tabId === 'history') loadAttendanceHistory();
   if (tabId === 'settings') loadAdminSettings();
+  if (tabId === 'qr') loadAndRenderOfficeQr();
 }
 
 // 9. Admin Dashboard Data
@@ -2848,11 +2849,16 @@ async function loadAdminDashboard() {
 // 10. Office QR Code Poster Rendering (With Centered Logo)
 function renderOfficeQrPoster() {
   const container = document.getElementById('officeQrCodeDisplay');
-  if (!container || !publicInfo) return;
+  if (!container) return;
   container.innerHTML = '';
   container.style.position = 'relative';
 
-  const qrToken = publicInfo.officeQrToken || '';
+  // Automatically update poster domain to live origin (e.g. https://vann-thida-attendance.vercel.app)
+  const posterUrlEl = document.getElementById('qrPosterUrlText');
+  if (posterUrlEl) posterUrlEl.textContent = window.location.origin;
+  mobileAppUrl = window.location.origin;
+
+  const qrToken = (publicInfo && publicInfo.officeQrToken) ? publicInfo.officeQrToken : 'eb2070ce7e8060fc3b8030e9c0b4ea0a4e16668eff9ec2d9';
   const qrSize = 240;
 
   new QRCode(container, {
@@ -5528,6 +5534,108 @@ async function loadAndRenderOfficeQr() {
     }
   }
   renderOfficeQrPoster();
+}
+
+function downloadOfficeQrPng() {
+  const container = document.getElementById('officeQrCodeDisplay');
+  if (!container) return;
+  let canvas = container.querySelector('canvas');
+  if (!canvas) {
+    renderOfficeQrPoster();
+    setTimeout(downloadOfficeQrPng, 250);
+    return;
+  }
+  try {
+    const padding = 24;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width + padding * 2;
+    exportCanvas.height = canvas.height + padding * 2;
+    const ctx = exportCanvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    ctx.drawImage(canvas, padding, padding);
+
+    const link = document.createElement('a');
+    link.download = 'VANN_SITHA_OFFICE_QR.png';
+    link.href = exportCanvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    if (window.Swal) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: currentLang === 'km' ? 'បានទាញយក QR Code (.PNG) រួចរាល់!' : 'QR Code downloaded (.PNG)!',
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+  } catch (err) {
+    console.error('Download PNG failed:', err);
+    // Fallback: try direct image or print
+    const img = container.querySelector('img');
+    if (img && img.src) {
+      const link = document.createElement('a');
+      link.download = 'VANN_SITHA_OFFICE_QR.png';
+      link.href = img.src;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+}
+
+function downloadOfficeQrPosterPdf() {
+  const posterArea = document.getElementById('printableQrPosterArea');
+  if (!posterArea) return;
+
+  if (typeof html2pdf === 'undefined') {
+    printOfficeQrPoster();
+    return;
+  }
+
+  if (window.Swal) {
+    Swal.fire({
+      title: currentLang === 'km' ? 'កំពុងរៀបចំ PDF...' : 'Preparing PDF...',
+      text: currentLang === 'km' ? 'សូមរង់ចាំបន្តិច' : 'Please wait a moment',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+  }
+
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: 'VANN_SITHA_OFFICE_QR_POSTER.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(posterArea).save().then(() => {
+    if (window.Swal) {
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: currentLang === 'km' ? 'បានទាញយក Poster PDF រួចរាល់!' : 'Poster PDF downloaded!',
+        showConfirmButton: false,
+        timer: 2000
+      });
+    }
+  }).catch((err) => {
+    console.error('PDF export error:', err);
+    if (window.Swal) {
+      Swal.fire({
+        icon: 'warning',
+        title: currentLang === 'km' ? 'អាចបោះពុម្ពជំនួសបាន' : 'Print fallback',
+        text: currentLang === 'km' ? 'លោកអ្នកអាចប្រើប៊ូតុង "បោះពុម្ព (Print)" ដើម្បី Save ជា PDF បានយ៉ាងងាយស្រួល' : 'You can use the Print button to Save as PDF'
+      });
+    }
+  });
 }
 
 function printOfficeQrPoster() {
